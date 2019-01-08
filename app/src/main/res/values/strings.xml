@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">FaceMem</string>
+    <string name="str_Add_Person">Add Person</string>
+    <string name="str_Practice">Practice</string>
+    <string name="str_Edit">Edit</string>
+</resources>
