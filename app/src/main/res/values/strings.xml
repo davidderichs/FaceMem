@@ -3,4 +3,6 @@
     <string name="str_Add_Person">Add Person</string>
     <string name="str_Practice">Practice</string>
     <string name="str_Edit">Edit</string>
+    <string name="input_name">Name of new Person</string>
+    <string name="choose_from_file">Choose Picture</string>
 </resources>

@@ -3,4 +3,6 @@
     <color name="colorPrimary">#f98500</color>
     <color name="colorPrimaryDark">#b46900</color>
     <color name="colorAccent">#ffffff</color>
+    <color name="colorButton">#f98500</color>
+    <color name="colorButtonBackground">#32f98500</color>
 </resources>

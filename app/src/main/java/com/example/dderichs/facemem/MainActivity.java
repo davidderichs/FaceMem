@@ -1,16 +1,30 @@
 package com.example.dderichs.facemem;
 
-import android.media.Image;
-import android.support.design.widget.TabItem;
+import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
+import android.provider.MediaStore;
 import android.support.design.widget.TabLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.GridView;
-import android.widget.ListAdapter;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.Toast;
+
+import java.io.File;
+
+import static android.graphics.Color.GREEN;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -21,25 +35,233 @@ public class MainActivity extends AppCompatActivity {
 
     GridView gridview;
     TabLayout tabs;
-    ImageAdapter imageAdapter;
+    ImageButton button_Take_Picture;
+    ImageButton button_Save_New_Person;
+    ImageButton button_Choose_Picture;
+    ImageView imageView_Taken_Picture;
+    EditText textEdit_New_Person_Name;
+
+    boolean imageTaken = false;
+    boolean newPersonNamed = false;
+    boolean newPersonPictureDialogVisible = true;
+
+    String[] gridViewString = {
+            "Peter", "Andrea", "Hannes", "Simon", "Karl", "Marina",
+            "Juergen", "Noobie", "Nobse", "Ulrich", "Michael", "Verena",
+            "Laura", "Ariane", "Maria", "Anna", "Lionel", "Diana",
+    } ;
+
+    int[] gridViewImageId = {
+            R.drawable.sample_0, R.drawable.sample_0, R.drawable.sample_1, R.drawable.sample_1, R.drawable.sample_2, R.drawable.sample_2,
+            R.drawable.sample_3, R.drawable.sample_3, R.drawable.sample_4, R.drawable.sample_4, R.drawable.sample_5, R.drawable.sample_5,
+            R.drawable.sample_6, R.drawable.sample_6, R.drawable.sample_7, R.drawable.sample_7, R.drawable.sample_7, R.drawable.sample_7,
+    };
+
+    static final int REQUEST_IMAGE_CAPTURE = 1;
+    static final int PICK_IMAGE = 2;
+
+    private void dispatchTakePictureIntent() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+        }
+    }
+
+    private void dispatchChoosePictureIntent(){
+        Intent intent = new Intent();
+        intent.setType("image/*");
+        intent.setAction(Intent.ACTION_PICK);
+        startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
+    }
+
+    public String getPathFromURI(Uri contentUri) {
+        String res = null;
+        String[] proj = {MediaStore.Images.Media.DATA};
+        Cursor cursor = getContentResolver().query(contentUri, proj, null, null, null);
+        if (cursor.moveToFirst()) {
+            int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+            res = cursor.getString(column_index);
+        }
+        cursor.close();
+        return res;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            try{
+                Bundle extras = data.getExtras();
+                Bitmap imageBitmap = (Bitmap) extras.get("data");
+                imageView_Taken_Picture.setImageBitmap(imageBitmap);
+                Log.d("FaceMem", "Picture received");
+                imageTaken = true;
+                findViewById(R.id.relLayout_newImage).setVisibility(View.VISIBLE);
+                hideNewPersonPictureDialog();
+            } catch (Exception e){
+                Log.d("FaceMem", "Taking a Foto failed: ", e);
+            }
+
+        }
+
+        if (requestCode == PICK_IMAGE) {
+            try {
+                Log.d("FaceMem", "Picture picked");
+                Uri selectedImageUri = data.getData();
+                // Get the path from the Uri
+                final String path = getPathFromURI(selectedImageUri);
+                if (path != null) {
+                    File f = new File(path);
+                    selectedImageUri = Uri.fromFile(f);
+                }
+                // Set the image in ImageView
+                imageView_Taken_Picture.setImageURI(selectedImageUri);
+                imageTaken = true;
+                findViewById(R.id.relLayout_newImage).setVisibility(View.VISIBLE);
+                hideNewPersonPictureDialog();
+                newPersonPictureDialogVisible = false;
+            } catch (Exception e){
+                Log.d("FaceMem", "Picture pick failed: ", e);
+            }
+
+        }
+    }
+
+    private void hideNewPersonPictureDialog(){
+        findViewById(R.id.relLayout_takePicture).setVisibility(View.GONE);
+        findViewById(R.id.relLayout_hint_take_Picture).setVisibility(View.GONE);
+        findViewById(R.id.relLayout_choosePicture).setVisibility(View.GONE);
+        findViewById(R.id.relLayout_hint_choose_Picture).setVisibility(View.GONE);
+    }
+
+    private void showNewPersonPictureDialog(){
+        findViewById(R.id.relLayout_takePicture).setVisibility(View.VISIBLE);
+        findViewById(R.id.relLayout_hint_take_Picture).setVisibility(View.VISIBLE);
+        findViewById(R.id.relLayout_choosePicture).setVisibility(View.VISIBLE);
+        findViewById(R.id.relLayout_hint_choose_Picture).setVisibility(View.VISIBLE);
+    }
+
+    private void showNewPersonDialog(){
+        if(imageTaken) {
+            findViewById(R.id.relLayout_newImage).setVisibility(View.VISIBLE);
+        }
+        findViewById(R.id.relLayout_savePerson).setVisibility(View.VISIBLE);
+        findViewById(R.id.relLayout_TypeName).setVisibility(View.VISIBLE);
+            findViewById(R.id.relLayout_takePicture).setVisibility(View.VISIBLE);
+        findViewById(R.id.relLayout_hint_take_Picture).setVisibility(View.VISIBLE);
+        findViewById(R.id.relLayout_choosePicture).setVisibility(View.VISIBLE);
+        findViewById(R.id.relLayout_hint_choose_Picture).setVisibility(View.VISIBLE);
+    }
+
+    private void hideNewPersonDialog(){
+        findViewById(R.id.relLayout_newImage).setVisibility(View.GONE);
+        findViewById(R.id.relLayout_savePerson).setVisibility(View.GONE);
+        findViewById(R.id.relLayout_takePicture).setVisibility(View.GONE);
+        findViewById(R.id.relLayout_TypeName).setVisibility(View.GONE);
+        findViewById(R.id.relLayout_choosePicture).setVisibility(View.GONE);
+        findViewById(R.id.relLayout_hint_choose_Picture).setVisibility(View.GONE);
+        findViewById(R.id.relLayout_hint_take_Picture).setVisibility(View.GONE);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        gridview = (GridView) findViewById(R.id.gridview);
-        imageAdapter = new ImageAdapter(this);
+        hideNewPersonDialog();
 
-        gridview.setAdapter(imageAdapter);
+        CustomGridViewActivity adapterViewAndroid = new CustomGridViewActivity(MainActivity.this, gridViewString, gridViewImageId);
+        gridview=(GridView)findViewById(R.id.grid_view_image_text);
         gridview.setVisibility(View.INVISIBLE);
+        gridview.setAdapter(adapterViewAndroid);
         gridview.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            public void onItemClick(AdapterView<?> parent, View v,
-                                    int position, long id) {
-                Toast.makeText(MainActivity.this, "ID: " + position,
-                        Toast.LENGTH_SHORT).show();
+
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int i, long id) {
+                Log.d("FaceMem", "imageText item selected: " + view.toString());
+                Toast.makeText(MainActivity.this, "GridView Item: " + gridViewString[+i], Toast.LENGTH_LONG).show();
             }
         });
+
+        button_Take_Picture = (ImageButton) findViewById(R.id.button_Take_Picture);
+        button_Take_Picture.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.d("Facemem", "Taking Picture");
+                dispatchTakePictureIntent();
+            }
+        });
+
+
+        button_Save_New_Person = (ImageButton) findViewById(R.id.button_Save_New_Person);
+        button_Save_New_Person.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (newPersonNamed){
+                    Log.d("Facemem","Saving Person");
+                    Toast.makeText(MainActivity.this, "Person saved", Toast.LENGTH_LONG).show();
+                    imageView_Taken_Picture.setImageResource(0);
+                    textEdit_New_Person_Name.setText("");
+                } else {
+                    Toast.makeText(MainActivity.this, "Name missing", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
+        button_Choose_Picture = (ImageButton) findViewById(R.id.button_Choose_Picture);
+        button_Choose_Picture.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.d("Facemem", "Picture Choose activated");
+                dispatchChoosePictureIntent();
+            }
+        });
+
+
+        imageView_Taken_Picture = (ImageView) findViewById(R.id.imageView_Taken_Picture);
+        imageView_Taken_Picture.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (newPersonPictureDialogVisible){
+                    hideNewPersonPictureDialog();
+                    newPersonPictureDialogVisible = false;
+                } else {
+                    showNewPersonPictureDialog();
+                    newPersonPictureDialogVisible = true;
+                }
+
+            }
+        });
+
+
+        textEdit_New_Person_Name = (EditText) findViewById(R.id.editText_New_Person_Name);
+        textEdit_New_Person_Name.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                if(hasFocus){
+                    textEdit_New_Person_Name.setHint("");
+                } else {
+                    textEdit_New_Person_Name.setHint(R.string.input_name);
+                }
+            }
+        });
+        textEdit_New_Person_Name.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                textEdit_New_Person_Name.setCursorVisible(true);
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                textEdit_New_Person_Name.setCursorVisible(true);
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if(s.length() > 0) newPersonNamed = true;
+                textEdit_New_Person_Name.setCursorVisible(false);
+            }
+        });
+
 
         tabs = (TabLayout) findViewById(R.id.tabs);
 
@@ -49,12 +271,15 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("FaceMem", "tab selected: " + tab.getText());
                 switch (tab.getPosition()){
                     case 0:
-                        gridview.setVisibility(View.INVISIBLE);
+                        hideNewPersonDialog();
+                        gridview.setVisibility(View.GONE);
                         break;
                     case 1:
-                        gridview.setVisibility(View.INVISIBLE);
+                        showNewPersonDialog();
+                        gridview.setVisibility(View.GONE);
                         break;
                     case 2:
+                        hideNewPersonDialog();
                         gridview.setVisibility(View.VISIBLE);
                         break;
                 }
@@ -70,6 +295,5 @@ public class MainActivity extends AppCompatActivity {
 
             }
         });
-
     }
 }
