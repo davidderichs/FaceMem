@@ -3,9 +3,11 @@ package com.example.dderichs.facemem;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.GradientDrawable;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Environment;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.design.widget.TabLayout;
 import android.support.v7.app.AppCompatActivity;
@@ -20,11 +22,17 @@ import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.File;
+import org.apache.commons.io.FileUtils;
 
-import static android.graphics.Color.GREEN;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -33,7 +41,14 @@ public class MainActivity extends AppCompatActivity {
      */
 //    https://www.viralandroid.com/2016/04/android-gridview-with-image-and-text.html
 
+    FeedReaderContract mFeedReaderContract;
+
     GridView gridview;
+    LinearLayout linLayout_Practice;
+    Button practice_answer_true;
+    Button practice_answer_wrong;
+    Button practice_next;
+    TextView linLayout_Practice_Dialog;
     TabLayout tabs;
     ImageButton button_Take_Picture;
     ImageButton button_Save_New_Person;
@@ -42,23 +57,20 @@ public class MainActivity extends AppCompatActivity {
     EditText textEdit_New_Person_Name;
 
     boolean imageTaken = false;
+    boolean imagePicked = false;
     boolean newPersonNamed = false;
     boolean newPersonPictureDialogVisible = true;
 
-    String[] gridViewString = {
-            "Peter", "Andrea", "Hannes", "Simon", "Karl", "Marina",
-            "Juergen", "Noobie", "Nobse", "Ulrich", "Michael", "Verena",
-            "Laura", "Ariane", "Maria", "Anna", "Lionel", "Diana",
-    } ;
-
-    int[] gridViewImageId = {
-            R.drawable.sample_0, R.drawable.sample_0, R.drawable.sample_1, R.drawable.sample_1, R.drawable.sample_2, R.drawable.sample_2,
-            R.drawable.sample_3, R.drawable.sample_3, R.drawable.sample_4, R.drawable.sample_4, R.drawable.sample_5, R.drawable.sample_5,
-            R.drawable.sample_6, R.drawable.sample_6, R.drawable.sample_7, R.drawable.sample_7, R.drawable.sample_7, R.drawable.sample_7,
-    };
+    String[] gridViewString;
+    String[] gridViewImagePath;
 
     static final int REQUEST_IMAGE_CAPTURE = 1;
     static final int PICK_IMAGE = 2;
+
+    String newPerson_selectedImagePath;
+
+    int randomIndexImage;
+    int randomIndexText;
 
     private void dispatchTakePictureIntent() {
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -113,9 +125,12 @@ public class MainActivity extends AppCompatActivity {
                     File f = new File(path);
                     selectedImageUri = Uri.fromFile(f);
                 }
+
+                newPerson_selectedImagePath = path;
+
                 // Set the image in ImageView
                 imageView_Taken_Picture.setImageURI(selectedImageUri);
-                imageTaken = true;
+                imagePicked = true;
                 findViewById(R.id.relLayout_newImage).setVisibility(View.VISIBLE);
                 hideNewPersonPictureDialog();
                 newPersonPictureDialogVisible = false;
@@ -162,6 +177,122 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.relLayout_hint_take_Picture).setVisibility(View.GONE);
     }
 
+    private void insertSampleDataIntoDatabase(){
+        mFeedReaderContract = new FeedReaderContract(this);
+
+        mFeedReaderContract.deleteAllEntries();
+
+        String[] sampleNames = new String[]{
+                "Tobi", "Andrea", "Hannes", "Simon", "Karl", "Marina",
+                "Juergen", "Noobie"
+        } ;
+
+        String[] sampleImagePaths = new String[]{
+                "sample_0", "sample_1", "sample_2", "sample_3", "sample_4", "sample_5",
+                "sample_6", "sample_7"
+        } ;
+
+        for (int i=0; i<sampleNames.length; i++){
+            mFeedReaderContract.InsertEntry(sampleNames[i], sampleImagePaths[i]);
+        }
+
+    }
+
+
+    private void addPerson(){
+        Log.d("Facemem", "addPerson() called");
+        mFeedReaderContract = new FeedReaderContract(this);
+
+        String name;
+        String imagePath;
+
+        if(imagePicked) {
+            name = textEdit_New_Person_Name.getText().toString();
+            imagePath = newPerson_selectedImagePath;
+            Log.d("Facemem", "new Insert Name: " + name);
+            Log.d("Facemem", "new Insert imgpath: " + imagePath);
+
+            mFeedReaderContract.InsertEntry(name, imagePath);
+
+            cacheDatabaseEntries();
+
+
+            Toast.makeText(MainActivity.this, "Person saved", Toast.LENGTH_LONG).show();
+            imageView_Taken_Picture.setImageResource(0);
+            textEdit_New_Person_Name.setText("");
+
+            resetCustomGridView();
+        }
+
+
+
+    }
+
+    private void cacheDatabaseEntries(){
+        mFeedReaderContract = new FeedReaderContract(this);
+
+//        Log.d("Facemem", "Trying to cache Data from Database");
+        try {
+//            Log.d("Facemem", "Trying to set Cursor");
+            Cursor cursor = mFeedReaderContract.ReadEntry();
+//            Log.d("Facemem", "Cursor Set");
+            int i;
+
+            if(cursor.getCount() <= 0){
+                Log.d("Facemem", "no Entries found");
+                gridViewString = new String[0];
+                gridViewImagePath = new String[0];
+                return;
+            }
+
+//            Log.d("Facemem", "Entries found: " + cursor.getCount());
+            gridViewString = new String[cursor.getCount()];
+            gridViewImagePath = new String[cursor.getCount()];
+
+            cursor.moveToFirst();
+            for (i = 0; i < cursor.getCount(); i++) {
+                this.gridViewString[i] = cursor.getString(cursor.getColumnIndex("Name"));
+//                Log.d("Facemem", "MainActivity: gridViewString["+i+"]:" + this.gridViewString[i]);
+
+                this.gridViewImagePath[i] = cursor.getString(cursor.getColumnIndex("Picturepath"));
+                Log.d("Facemem", "MainActivity: gridViewPicturePath["+i+"]:" + gridViewImagePath[i]);
+//                Log.d("Facemem", "MainActivity: Moving to next Entry");
+                cursor.moveToNext();
+            }
+        } catch (Exception e){
+            Log.d("Facemem", e.getMessage());
+        }
+
+    }
+
+    private void resetPracticeView(){
+        this.practice_next.setVisibility(View.GONE);
+        this.practice_answer_wrong.setTextColor(getResources().getColor(R.color.inactive));
+        this.practice_answer_true.setTextColor(getResources().getColor(R.color.inactive));
+    }
+
+    private void practiceSetup(){
+        resetPracticeView();
+
+        this.practice_answer_true.setTextColor(getResources().getColor(R.color.inactive));
+        this.practice_answer_wrong.setTextColor(getResources().getColor(R.color.inactive));
+
+        if(gridViewString.length <= 0){
+            this.linLayout_Practice_Dialog.setText("No Persons found. Try to add Persons and come back later.");
+            this.practice_answer_wrong.setVisibility(View.GONE);
+            this.practice_answer_true.setVisibility(View.GONE);
+        } else {
+            this.randomIndexImage = new Random().nextInt(gridViewImagePath.length);
+            this.randomIndexText = new Random().nextInt(gridViewString.length);
+
+            this.linLayout_Practice_Dialog.setText("Is this " + gridViewString[randomIndexText] + "?");
+
+            ImageView practiceImage = (ImageView) findViewById(R.id.linLayout_Practice_Image);
+            Bitmap bitmap = BitmapFactory.decodeFile(gridViewImagePath[randomIndexImage]);
+            practiceImage.setImageBitmap(bitmap);
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -169,18 +300,55 @@ public class MainActivity extends AppCompatActivity {
 
         hideNewPersonDialog();
 
-        CustomGridViewActivity adapterViewAndroid = new CustomGridViewActivity(MainActivity.this, gridViewString, gridViewImageId);
-        gridview=(GridView)findViewById(R.id.grid_view_image_text);
-        gridview.setVisibility(View.INVISIBLE);
-        gridview.setAdapter(adapterViewAndroid);
-        gridview.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+//        insertSampleDataIntoDatabase();
 
+        cacheDatabaseEntries();
+
+        linLayout_Practice = (LinearLayout) findViewById(R.id.linLayout_Practice);
+        linLayout_Practice.setVisibility(View.VISIBLE);
+
+        linLayout_Practice_Dialog = (TextView) findViewById(R.id.linLayout_Practice_Dialog);
+
+        practice_next = (Button) findViewById(R.id.practice_next);
+        practice_next.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onItemClick(AdapterView<?> parent, View view, int i, long id) {
-                Log.d("FaceMem", "imageText item selected: " + view.toString());
-                Toast.makeText(MainActivity.this, "GridView Item: " + gridViewString[+i], Toast.LENGTH_LONG).show();
+            public void onClick(View v) {
+                practiceSetup();
             }
         });
+
+        practice_answer_true = (Button) findViewById(R.id.practice_answer_true);
+        practice_answer_true.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                practice_answer_true.setTextColor(getResources().getColor(R.color.active));
+                practice_next.setVisibility(View.VISIBLE);
+                if(randomIndexImage == randomIndexText){
+                    linLayout_Practice_Dialog.setText("Correct");
+                } else {
+                    linLayout_Practice_Dialog.setText("Nope. This is " + gridViewString[randomIndexImage]);
+                }
+
+            }
+        });
+        practice_answer_wrong= (Button) findViewById(R.id.practice_answer_wrong);
+        practice_answer_wrong.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                practice_answer_wrong.setTextColor(getResources().getColor(R.color.active));
+                practice_next.setVisibility(View.VISIBLE);
+                if(! (randomIndexImage == randomIndexText) ){
+                    linLayout_Practice_Dialog.setText("Correct. That's " + gridViewString[randomIndexImage] );
+                } else {
+                    linLayout_Practice_Dialog.setText("Nope. That's" + gridViewString[randomIndexImage] );
+                }
+            }
+        });
+
+        practiceSetup();
+
+        resetCustomGridView();
+
 
         button_Take_Picture = (ImageButton) findViewById(R.id.button_Take_Picture);
         button_Take_Picture.setOnClickListener(new View.OnClickListener() {
@@ -197,10 +365,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 if (newPersonNamed){
-                    Log.d("Facemem","Saving Person");
-                    Toast.makeText(MainActivity.this, "Person saved", Toast.LENGTH_LONG).show();
-                    imageView_Taken_Picture.setImageResource(0);
-                    textEdit_New_Person_Name.setText("");
+                    addPerson();
                 } else {
                     Toast.makeText(MainActivity.this, "Name missing", Toast.LENGTH_LONG).show();
                 }
@@ -234,16 +399,6 @@ public class MainActivity extends AppCompatActivity {
 
 
         textEdit_New_Person_Name = (EditText) findViewById(R.id.editText_New_Person_Name);
-        textEdit_New_Person_Name.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-            @Override
-            public void onFocusChange(View v, boolean hasFocus) {
-                if(hasFocus){
-                    textEdit_New_Person_Name.setHint("");
-                } else {
-                    textEdit_New_Person_Name.setHint(R.string.input_name);
-                }
-            }
-        });
         textEdit_New_Person_Name.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -257,7 +412,12 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(Editable s) {
-                if(s.length() > 0) newPersonNamed = true;
+                if(s.length() > 0){
+                    newPersonNamed = true;
+                } else {
+                    textEdit_New_Person_Name.setHint(R.string.input_name);
+                    newPersonNamed = false;
+                }
                 textEdit_New_Person_Name.setCursorVisible(false);
             }
         });
@@ -273,14 +433,17 @@ public class MainActivity extends AppCompatActivity {
                     case 0:
                         hideNewPersonDialog();
                         gridview.setVisibility(View.GONE);
+                        linLayout_Practice.setVisibility(View.VISIBLE);
                         break;
                     case 1:
                         showNewPersonDialog();
                         gridview.setVisibility(View.GONE);
+                        linLayout_Practice.setVisibility(View.GONE);
                         break;
                     case 2:
                         hideNewPersonDialog();
                         gridview.setVisibility(View.VISIBLE);
+                        linLayout_Practice.setVisibility(View.GONE);
                         break;
                 }
             }
@@ -293,6 +456,21 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onTabReselected(TabLayout.Tab tab) {
 
+            }
+        });
+    }
+
+    private void resetCustomGridView() {
+        CustomGridViewActivity adapterViewAndroid = new CustomGridViewActivity(MainActivity.this, gridViewString, gridViewImagePath);
+        gridview=(GridView)findViewById(R.id.grid_view_image_text);
+        gridview.setVisibility(View.INVISIBLE);
+        gridview.setAdapter(adapterViewAndroid);
+        gridview.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int i, long id) {
+                Log.d("FaceMem", "imageText item selected: " + view.toString());
+                Toast.makeText(MainActivity.this, "GridView Item: " + gridViewString[+i], Toast.LENGTH_LONG).show();
             }
         });
     }

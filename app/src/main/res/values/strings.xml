@@ -5,4 +5,7 @@
     <string name="str_Edit">Edit</string>
     <string name="input_name">Name of new Person</string>
     <string name="choose_from_file">Choose Picture</string>
+    <string name="answer_true">yes</string>
+    <string name="answer_wrong">no</string>
+    <string name="next">next Question</string>
 </resources>

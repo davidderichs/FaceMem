@@ -5,4 +5,7 @@
     <color name="colorAccent">#ffffff</color>
     <color name="colorButton">#f98500</color>
     <color name="colorButtonBackground">#32f98500</color>
+    <color name="active">#f98500</color>
+    <color name="inactive">#545454</color>
+    <color name="choiceBackground">#03000000</color>
 </resources>
