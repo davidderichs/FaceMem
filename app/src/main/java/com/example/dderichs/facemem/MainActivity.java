@@ -84,8 +84,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        insertSampleDataIntoDatabase();
-
+//        insertSampleDataIntoDatabase();
+//
         cacheDatabaseEntries();
 
         initializeUIElements();
@@ -94,7 +94,6 @@ public class MainActivity extends AppCompatActivity {
 
         startPractise();
 
-        resetCustomGridView();
     }
 
     /***
@@ -244,12 +243,12 @@ public class MainActivity extends AppCompatActivity {
         mFeedReaderContract.deleteAllEntries();
 
         String[] sampleNames = new String[]{
-                "Tobi", "Andrea", "Hannes", "Simon",
+                "Andrea", "Hannes", "Simon",
                 "Karl", "Marina", "Juergen", "Noobie"
         } ;
 
         String[] sampleImagePaths = new String[]{
-                "/storage/emulated/0/Pictures/sample_0.jpg", "/storage/emulated/0/Pictures/sample_1.jpg",
+                "/storage/emulated/0/Pictures/sample_1.jpg",
                 "/storage/emulated/0/Pictures/sample_2.jpg", "/storage/emulated/0/Pictures/sample_3.jpg",
                 "/storage/emulated/0/Pictures/sample_4.jpg", "/storage/emulated/0/Pictures/sample_5.jpg",
                 "/storage/emulated/0/Pictures/sample_6.jpg", "/storage/emulated/0/Pictures/sample_7.jpg"
@@ -296,39 +295,29 @@ public class MainActivity extends AppCompatActivity {
      */
     private void cacheDatabaseEntries(){
         mFeedReaderContract = new FeedReaderContract(this);
-
-//        Log.d("Facemem", "Trying to cache Data from Database");
         try {
-//            Log.d("Facemem", "Trying to set Cursor");
             Cursor cursor = mFeedReaderContract.ReadEntry();
-//            Log.d("Facemem", "Cursor Set");
             int i;
 
             if(cursor.getCount() <= 0){
-//                Log.d("Facemem", "no Entries found");
                 gridViewString = new String[0];
                 gridViewImagePath = new String[0];
                 return;
             }
 
-//            Log.d("Facemem", "Entries found: " + cursor.getCount());
             gridViewString = new String[cursor.getCount()];
             gridViewImagePath = new String[cursor.getCount()];
 
             cursor.moveToFirst();
             for (i = 0; i < cursor.getCount(); i++) {
                 this.gridViewString[i] = cursor.getString(cursor.getColumnIndex("Name"));
-//                Log.d("Facemem", "MainActivity: gridViewString["+i+"]:" + this.gridViewString[i]);
 
                 this.gridViewImagePath[i] = cursor.getString(cursor.getColumnIndex("Picturepath"));
-//                Log.d("Facemem", "MainActivity: gridViewPicturePath["+i+"]:" + gridViewImagePath[i]);
-//                Log.d("Facemem", "MainActivity: Moving to next Entry");
                 cursor.moveToNext();
             }
         } catch (Exception e){
             Log.d("Facemem", e.getMessage());
         }
-
     }
 
     /**
@@ -392,10 +381,19 @@ public class MainActivity extends AppCompatActivity {
         tabs = (TabLayout) findViewById(R.id.tabs);
 
         hideNewPersonDialog();
+        resetCustomGridView();
     }
 
     private void setupUIListeners(){
 
+        setupListener_TabLayout();
+
+        setupListener_PracticeLayout();
+
+        setupListener_NewPersonLayout();
+    }
+
+    private void setupListener_TabLayout(){
         tabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
@@ -429,7 +427,9 @@ public class MainActivity extends AppCompatActivity {
 
             }
         });
+    }
 
+    private void setupListener_PracticeLayout(){
         practice_next.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -463,7 +463,9 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
 
+    private void setupListener_NewPersonLayout(){
         textEdit_New_Person_Name.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
